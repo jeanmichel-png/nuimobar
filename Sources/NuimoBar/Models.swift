@@ -75,7 +75,7 @@ struct KeyCombo: Codable, Hashable {
 enum ActionKind: String, Codable, CaseIterable, Identifiable {
     case inherit, none, playPause, nextTrack, previousTrack, muteToggle
     case missionControl, appWindows, showDesktop, spaceLeft, spaceRight
-    case keystroke, shell, shortcut, showEmoji
+    case keystroke, shell, shortcut, showEmoji, toggleHover
 
     var id: String { rawValue }
 
@@ -96,6 +96,7 @@ enum ActionKind: String, Codable, CaseIterable, Identifiable {
         case .shell: return "Shell command"
         case .shortcut: return "Run Shortcut"
         case .showEmoji: return "Show emoji on Nuimo"
+        case .toggleHover: return "Hover on / off"
         }
     }
 }
@@ -211,6 +212,9 @@ struct Config: Codable {
     var profiles: [Profile]
     var ledFeedback = true
     var notificationRules: [NotificationRule] = []
+    /// When set, hover and waves do nothing until switched on with the
+    /// "Hover on / off" action, and switch themselves off again when idle.
+    var hoverNeedsSwitchingOn = true
 
     init(profiles: [Profile], ledFeedback: Bool = true, notificationRules: [NotificationRule] = []) {
         self.profiles = profiles
@@ -224,6 +228,7 @@ struct Config: Codable {
         profiles = try c.decode([Profile].self, forKey: .profiles)
         ledFeedback = try c.decodeIfPresent(Bool.self, forKey: .ledFeedback) ?? true
         notificationRules = try c.decodeIfPresent([NotificationRule].self, forKey: .notificationRules) ?? []
+        hoverNeedsSwitchingOn = try c.decodeIfPresent(Bool.self, forKey: .hoverNeedsSwitchingOn) ?? true
     }
 
     static let starter = Config(profiles: [
@@ -235,6 +240,10 @@ struct Config: Codable {
                 Gesture.longPress.rawValue: Action(kind: .muteToggle),
                 Gesture.swipeRight.rawValue: Action(kind: .nextTrack),
                 Gesture.swipeLeft.rawValue: Action(kind: .previousTrack),
+                Gesture.longTouchLeft.rawValue: Action(kind: .toggleHover),
+                Gesture.longTouchRight.rawValue: Action(kind: .toggleHover),
+                Gesture.longTouchTop.rawValue: Action(kind: .toggleHover),
+                Gesture.longTouchBottom.rawValue: Action(kind: .toggleHover),
             ]),
         Profile(
             id: "com.adobe.Photoshop", name: "Adobe Photoshop",

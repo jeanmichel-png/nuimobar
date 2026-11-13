@@ -170,7 +170,7 @@ private struct ProfileEditor: View {
             } header: {
                 Text("Hover")
             } footer: {
-                Text("Hold a hand a few centimetres above the Nuimo, then raise or lower it.")
+                Text("Hold a hand a few centimetres above the Nuimo, then raise or lower it. Whether hover has to be switched on first is set at the bottom of this window.")
             }
 
             Section("Gestures") {
@@ -299,6 +299,9 @@ private struct LivePanel: View {
                 if let b = device.battery { Text("· Battery \(b)%").foregroundStyle(.secondary) }
                 if let f = device.firmware { Text("· Firmware \(f)").foregroundStyle(.secondary) }
                 Spacer()
+                Toggle("Hover must be switched on", isOn: $store.config.hoverNeedsSwitchingOn)
+                    .toggleStyle(.checkbox)
+                    .help("Hover and waves do nothing until a gesture set to “Hover on / off” switches them on. They switch off again after 15 seconds unused.")
                 Toggle("Show feedback on the Nuimo", isOn: $store.config.ledFeedback)
                     .toggleStyle(.checkbox)
             }

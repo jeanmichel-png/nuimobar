@@ -119,6 +119,10 @@ final class Controller: ObservableObject {
     // MARK: Gestures
 
     private func handle(_ g: Gesture) {
+        if g == .flyLeft || g == .flyRight || g == .wave {
+            guard hoverIsOn else { return }
+            keepHoverOn()
+        }
         if g == .flyLeft || g == .flyRight {
             // One physical wave often reports both directions a fraction of a
             // second apart; keep the first. The same pass also streams height
@@ -162,6 +166,14 @@ final class Controller: ObservableObject {
             SystemActions.runShell(action.text); show(.dot, seconds: 0.3)
         case .shortcut:
             SystemActions.runShortcut(action.text); show(.dot, seconds: 0.3)
+        case .toggleHover:
+            if hoverIsOn && store.config.hoverNeedsSwitchingOn {
+                hoverOnUntil = .distantPast
+                device.show(.hoverOff, seconds: 1.0)
+            } else {
+                hoverOnUntil = Date().addingTimeInterval(Self.hoverIdleTimeout)
+                device.show(.hoverOn, seconds: 1.0)
+            }
         case .showEmoji:
             // Deliberate output, so it ignores the feedback toggle.
             if let first = action.text.first { device.show(LEDMatrix(glyph: String(first)), seconds: 3) }
@@ -208,8 +220,23 @@ final class Controller: ObservableObject {
     /// The Nuimo reports hand height about eight times a second while a hand is
     /// in range. A hand that stays is a continuous control (raise = more); one
     /// that passes straight through counts as a quick wave.
+    /// How long hover stays switched on without being used.
+    private static let hoverIdleTimeout: TimeInterval = 15
+    private var hoverOnUntil = Date.distantPast
+
+    private var hoverIsOn: Bool {
+        !store.config.hoverNeedsSwitchingOn || Date() < hoverOnUntil
+    }
+
+    private func keepHoverOn() {
+        if store.config.hoverNeedsSwitchingOn {
+            hoverOnUntil = Date().addingTimeInterval(Self.hoverIdleTimeout)
+        }
+    }
+
     private func handleHover(_ height: Int) {
         let now = Date()
+        guard hoverIsOn else { return }
         guard now >= hoverSuppressedUntil else { return }
         if now.timeIntervalSince(hoverLast) > 0.4 {
             hoverStart = now
@@ -245,6 +272,7 @@ final class Controller: ObservableObject {
         hoverBanked = 0
         guard change != 0 else { return }
         let hover = store.hover(bundleID: frontBundleID)
+        keepHoverOn()
         if !hoverEngaged {
             hoverEngaged = true
             log("Hover → \(hover.kind.label)")
