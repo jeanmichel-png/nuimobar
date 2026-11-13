@@ -201,6 +201,7 @@ final class Controller: ObservableObject {
     private var hoverPrevious: Int?
     private var hoverEngaged = false
     private var hoverEndTimer: Timer?
+    private var hoverBanked = 0
     private var hoverSuppressedUntil = Date.distantPast
     private var lastDirectionalWave = Date.distantPast
 
@@ -214,6 +215,7 @@ final class Controller: ObservableObject {
             hoverStart = now
             hoverPrevious = nil
             hoverEngaged = false
+            hoverBanked = 0
             keyAccumulator = 0
             scrollAccumulator = 0
         }
@@ -228,10 +230,20 @@ final class Controller: ObservableObject {
             }
         }
         defer { hoverPrevious = height }
-        guard now.timeIntervalSince(hoverStart) >= 0.5, let previous = hoverPrevious else { return }
-        let change = height - previous
+        guard let previous = hoverPrevious else { return }
+        var change = height - previous
         // Big jumps are the hand entering or leaving range, not deliberate movement.
-        guard change != 0, abs(change) <= 80 else { return }
+        guard abs(change) <= 80 else { return }
+        // Until the hand has stayed long enough to rule out a passing wave, bank
+        // the movement instead of dropping it, then apply it in one go. Otherwise
+        // a quick deliberate raise or lower is mostly over before it counts.
+        guard now.timeIntervalSince(hoverStart) >= 0.35 else {
+            hoverBanked += change
+            return
+        }
+        change += hoverBanked
+        hoverBanked = 0
+        guard change != 0 else { return }
         let hover = store.hover(bundleID: frontBundleID)
         if !hoverEngaged {
             hoverEngaged = true
