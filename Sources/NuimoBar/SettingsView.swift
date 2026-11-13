@@ -9,6 +9,10 @@ struct SettingsView: View {
 
     static let notificationsID = "__notifications"
     static let timersID = "__timers"
+    static let displayPages: [(id: String, name: String, icon: String)] = [
+        (notificationsID, "Notifications", "bell"),
+        (timersID, "Timers", "timer"),
+    ]
 
     var body: some View {
         HStack(spacing: 0) {
@@ -43,10 +47,15 @@ struct SettingsView: View {
                     }
                 }
                 Section("Display") {
-                    Label("Notifications", systemImage: "bell")
-                        .tag(Optional(Self.notificationsID))
-                    Label("Timers", systemImage: "timer")
-                        .tag(Optional(Self.timersID))
+                    // Rows built from data, with an explicit tap handler: static
+                    // rows in a selectable List did not respond to clicks.
+                    ForEach(Self.displayPages, id: \.id) { page in
+                        Label(page.name, systemImage: page.icon)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
+                            .onTapGesture { selection = page.id }
+                            .tag(Optional(page.id))
+                    }
                 }
             }
             Divider()
