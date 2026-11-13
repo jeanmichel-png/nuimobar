@@ -26,6 +26,8 @@
 	<true/>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>NuimoBar shows a countdown to your next meeting on the Nuimo.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>NuimoBar connects to your Nuimo controller over Bluetooth.</string>
 </dict>

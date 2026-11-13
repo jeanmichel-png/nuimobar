@@ -43,6 +43,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         var status = device.state.rawValue
         if device.state == .connected, let b = device.battery { status += " · \(b)%" }
         menu.addItem(disabled(status))
+        if let focus = controller.focus.status { menu.addItem(disabled(focus)) }
+        if controller.store.config.meetingCountdown, let next = controller.meetings.status {
+            menu.addItem(disabled(next))
+        }
 
         if !SystemActions.canPostEvents {
             menu.addItem(.separator())
@@ -52,6 +56,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
 
         menu.addItem(.separator())
         menu.addItem(item("Settings…", #selector(openSettings), key: ","))
+        let minutes = controller.store.config.focusMinutes
+        menu.addItem(item(controller.focus.phase == .idle ? "Start Focus Timer (\(minutes) min)" : "Stop Focus Timer",
+                          #selector(toggleFocus)))
         let calibrate = item("Calibrate Hover Sensor…", #selector(calibrateHover))
         if !device.canCalibrateHover { calibrate.action = nil; calibrate.isEnabled = false }
         menu.addItem(calibrate)
@@ -90,6 +97,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             alert.runModal()
         }
     }
+
+    @objc private func toggleFocus() { controller.toggleFocusTimer() }
 
     @objc private func calibrateHover() {
         let alert = NSAlert()

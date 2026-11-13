@@ -8,6 +8,7 @@ struct SettingsView: View {
     @State private var selection: String? = Profile.defaultID
 
     static let notificationsID = "__notifications"
+    static let timersID = "__timers"
 
     var body: some View {
         HStack(spacing: 0) {
@@ -16,6 +17,8 @@ struct SettingsView: View {
             VStack(spacing: 0) {
                 if selection == Self.notificationsID {
                     NotificationRulesEditor(store: store, controller: controller)
+                } else if selection == Self.timersID {
+                    TimersEditor(store: store, controller: controller)
                 } else if let profile = selectedProfile {
                     ProfileEditor(profile: profile)
                 } else {
@@ -42,6 +45,8 @@ struct SettingsView: View {
                 Section("Display") {
                     Label("Notifications", systemImage: "bell")
                         .tag(Optional(Self.notificationsID))
+                    Label("Timers", systemImage: "timer")
+                        .tag(Optional(Self.timersID))
                 }
             }
             Divider()
@@ -67,7 +72,7 @@ struct SettingsView: View {
                     Image(systemName: "minus")
                 }
                 .buttonStyle(.borderless)
-                .disabled(selection == nil || selection == Profile.defaultID || selection == Self.notificationsID)
+                .disabled(selection == nil || selection == Profile.defaultID || selection?.hasPrefix("__") == true)
                 Spacer()
             }
             .padding(8)
@@ -94,6 +99,43 @@ struct SettingsView: View {
                     store.config.profiles[i] = new
                 }
             })
+    }
+}
+
+private struct TimersEditor: View {
+    @ObservedObject var store: ConfigStore
+    let controller: Controller
+
+    var body: some View {
+        Form {
+            Section {
+                Stepper("Focus: \(store.config.focusMinutes) min", value: $store.config.focusMinutes, in: 1...99)
+                Stepper("Break: \(store.config.breakMinutes) min", value: $store.config.breakMinutes, in: 0...30)
+            } header: {
+                Text("Focus timer")
+            } footer: {
+                Text("Use the gesture set to “Focus timer”, turn the dial to choose the minutes, then press to start. The Nuimo shows the minutes left once a minute and counts the last minute in seconds. Use the gesture again to see the time left; twice in a row stops it. Set the break to 0 to skip it.")
+            }
+
+            Section {
+                Toggle("Count down to calendar events", isOn: $store.config.meetingCountdown)
+                Stepper("Start \(store.config.meetingLeadMinutes) min before",
+                        value: $store.config.meetingLeadMinutes, in: 1...30)
+                if !controller.meetings.hasAccess {
+                    Button("Allow Calendar Access…") {
+                        controller.meetings.requestAccess()
+                        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }
+                }
+            } header: {
+                Text("Meeting countdown")
+            } footer: {
+                Text("Uses the calendars in the macOS Calendar app. The gesture set to “Join next meeting” opens the Zoom, Meet or Teams link of a meeting that is about to start or under way.")
+            }
+        }
+        .formStyle(.grouped)
     }
 }
 

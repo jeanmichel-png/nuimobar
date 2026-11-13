@@ -75,7 +75,7 @@ struct KeyCombo: Codable, Hashable {
 enum ActionKind: String, Codable, CaseIterable, Identifiable {
     case inherit, none, playPause, nextTrack, previousTrack, muteToggle
     case missionControl, appWindows, showDesktop, spaceLeft, spaceRight
-    case keystroke, shell, shortcut, showEmoji, toggleHover
+    case keystroke, shell, shortcut, showEmoji, toggleHover, focusTimer, joinMeeting
 
     var id: String { rawValue }
 
@@ -97,6 +97,8 @@ enum ActionKind: String, Codable, CaseIterable, Identifiable {
         case .shortcut: return "Run Shortcut"
         case .showEmoji: return "Show emoji on Nuimo"
         case .toggleHover: return "Hover on / off"
+        case .focusTimer: return "Focus timer"
+        case .joinMeeting: return "Join next meeting"
         }
     }
 }
@@ -215,6 +217,11 @@ struct Config: Codable {
     /// When set, hover and waves do nothing until switched on with the
     /// "Hover on / off" action, and switch themselves off again when idle.
     var hoverNeedsSwitchingOn = true
+    var focusMinutes = 25
+    var breakMinutes = 5
+    /// Show minutes remaining on the Nuimo before calendar events.
+    var meetingCountdown = true
+    var meetingLeadMinutes = 10
 
     init(profiles: [Profile], ledFeedback: Bool = true, notificationRules: [NotificationRule] = []) {
         self.profiles = profiles
@@ -229,6 +236,10 @@ struct Config: Codable {
         ledFeedback = try c.decodeIfPresent(Bool.self, forKey: .ledFeedback) ?? true
         notificationRules = try c.decodeIfPresent([NotificationRule].self, forKey: .notificationRules) ?? []
         hoverNeedsSwitchingOn = try c.decodeIfPresent(Bool.self, forKey: .hoverNeedsSwitchingOn) ?? true
+        focusMinutes = try c.decodeIfPresent(Int.self, forKey: .focusMinutes) ?? 25
+        breakMinutes = try c.decodeIfPresent(Int.self, forKey: .breakMinutes) ?? 5
+        meetingCountdown = try c.decodeIfPresent(Bool.self, forKey: .meetingCountdown) ?? true
+        meetingLeadMinutes = try c.decodeIfPresent(Int.self, forKey: .meetingLeadMinutes) ?? 10
     }
 
     static let starter = Config(profiles: [
@@ -240,6 +251,8 @@ struct Config: Codable {
                 Gesture.longPress.rawValue: Action(kind: .muteToggle),
                 Gesture.swipeRight.rawValue: Action(kind: .nextTrack),
                 Gesture.swipeLeft.rawValue: Action(kind: .previousTrack),
+                Gesture.touchTop.rawValue: Action(kind: .focusTimer),
+                Gesture.touchBottom.rawValue: Action(kind: .joinMeeting),
                 Gesture.longTouchLeft.rawValue: Action(kind: .toggleHover),
                 Gesture.longTouchRight.rawValue: Action(kind: .toggleHover),
                 Gesture.longTouchTop.rawValue: Action(kind: .toggleHover),

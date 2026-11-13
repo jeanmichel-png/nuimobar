@@ -19,6 +19,23 @@ final class Controller: ObservableObject {
         device.onRotate = { [weak self] d in self?.handleRotation(d) }
         device.onHover = { [weak self] h in self?.handleHover(h) }
         device.onRaw = { [weak self] name, bytes in self?.logRaw(name, bytes) }
+
+        focus.show = { [weak self] matrix, seconds in self?.device.show(matrix, seconds: seconds) }
+        focus.onEvent = { [weak self] text in self?.log(text) }
+        focus.onStart = { [weak self] minutes in
+            guard let self, self.store.config.focusMinutes != minutes else { return }
+            self.store.config.focusMinutes = minutes
+        }
+
+        meetings.isEnabled = { [weak self] in self?.store.config.meetingCountdown ?? false }
+        meetings.leadMinutes = { [weak self] in self?.store.config.meetingLeadMinutes ?? 10 }
+        meetings.show = { [weak self] matrix, seconds in
+            // A running countdown in its final minute owns the display.
+            guard let self, !(self.focus.phase != .idle && self.focus.secondsLeft <= 60) else { return }
+            self.device.show(matrix, seconds: seconds)
+        }
+        meetings.onEvent = { [weak self] text in self?.log(text) }
+        meetings.start()
         notifications.onBanner = { [weak self] banner in self?.handle(banner) }
         notifications.start()
         logRaw("accessibility \(SystemActions.canPostEvents ? "granted" : "NOT granted")", [])
@@ -92,6 +109,21 @@ final class Controller: ObservableObject {
         if store.config.ledFeedback { device.show(m, seconds: seconds) }
     }
 
+    // MARK: Timers
+
+    let focus = FocusTimer()
+    let meetings = MeetingWatcher()
+
+    /// Starts a session with the saved length, or stops the one in progress.
+    func toggleFocusTimer() {
+        if focus.phase == .idle {
+            focus.breakMinutes = store.config.breakMinutes
+            focus.startWork(minutes: store.config.focusMinutes)
+        } else {
+            focus.stop()
+        }
+    }
+
     // MARK: Notifications
 
     private let notifications = NotificationWatcher()
@@ -119,6 +151,8 @@ final class Controller: ObservableObject {
     // MARK: Gestures
 
     private func handle(_ g: Gesture) {
+        // While a focus-timer length is being chosen, press starts it.
+        if g == .press, focus.press() { return }
         if g == .flyLeft || g == .flyRight || g == .wave {
             guard hoverIsOn else { return }
             keepHoverOn()
@@ -166,6 +200,11 @@ final class Controller: ObservableObject {
             SystemActions.runShell(action.text); show(.dot, seconds: 0.3)
         case .shortcut:
             SystemActions.runShortcut(action.text); show(.dot, seconds: 0.3)
+        case .focusTimer:
+            focus.breakMinutes = store.config.breakMinutes
+            focus.trigger(defaultMinutes: store.config.focusMinutes)
+        case .joinMeeting:
+            show(meetings.joinNext() ? .dot : LEDMatrix(glyph: "❌"), seconds: 0.8)
         case .toggleHover:
             if hoverIsOn && store.config.hoverNeedsSwitchingOn {
                 hoverOnUntil = .distantPast
@@ -193,6 +232,10 @@ final class Controller: ObservableObject {
     // MARK: Dial
 
     private func handleRotation(_ delta: Int) {
+        if focus.isCapturingInput {
+            focus.rotate(turns: Double(delta) / NuimoDevice.unitsPerTurn)
+            return
+        }
         let now = Date()
         if now.timeIntervalSince(lastRotation) > 0.5 {
             // A fresh turn: drop leftovers and log once rather than per tick.
